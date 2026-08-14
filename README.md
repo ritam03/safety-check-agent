@@ -85,8 +85,12 @@ flowchart TB
     API --> VALIDATE
     VALIDATE --> AGENT
 
-    subgraph RULES["Safety Rule Engine"]
-        direction TB
+    ENGINE["⚙ Safety Rule Engine"]
+
+    AGENT --> ENGINE
+
+    subgraph RULES[" "]
+        direction LR
         R1["Data Integrity"]
         R2["Blood Pressure<br/>AHA 2017"]
         R3["Heart Rate<br/>ACSM 11th Ed."]
@@ -97,14 +101,16 @@ flowchart TB
         R8["Medication<br/>AHA 2013"]
     end
 
-    AGENT --> R1
-    AGENT --> R2
-    AGENT --> R3
-    AGENT --> R4
-    AGENT --> R5
-    AGENT --> R6
-    AGENT --> R7
-    AGENT --> R8
+    ENGINE --> R1
+    ENGINE --> R2
+    ENGINE --> R3
+    ENGINE --> R4
+    ENGINE --> R5
+    ENGINE --> R6
+    ENGINE --> R7
+    ENGINE --> R8
+
+    DECISION["⚖ Decision Aggregator<br/>is_safe = blocks === 0"]
 
     R1 --> DECISION
     R2 --> DECISION
@@ -115,12 +121,14 @@ flowchart TB
     R7 --> DECISION
     R8 --> DECISION
 
-    DECISION["⚖ Decision Aggregator<br/>is_safe = blocks === 0"]
-    DECISION --> RESULT["✓ CheckResult<br/>is_safe · conflicts[] · ..."]
+    RESULT["✓ CheckResult<br/>is_safe · conflicts[] · ..."]
+
+    DECISION --> RESULT
 
     classDef input fill:#2563EB,stroke:#93C5FD,color:#FFFFFF,stroke-width:2px;
     classDef api fill:#7C3AED,stroke:#C4B5FD,color:#FFFFFF,stroke-width:2px;
     classDef agent fill:#0F766E,stroke:#5EEAD4,color:#FFFFFF,stroke-width:2px;
+    classDef engine fill:#0F766E,stroke:#5EEAD4,color:#FFFFFF,stroke-width:2px;
     classDef rule fill:#334155,stroke:#94A3B8,color:#FFFFFF,stroke-width:1.5px;
     classDef decision fill:#B45309,stroke:#FCD34D,color:#FFFFFF,stroke-width:2px;
     classDef result fill:#15803D,stroke:#86EFAC,color:#FFFFFF,stroke-width:2px;
@@ -128,6 +136,7 @@ flowchart TB
     class USER input;
     class API,VALIDATE api;
     class AGENT agent;
+    class ENGINE engine;
     class R1,R2,R3,R4,R5,R6,R7,R8 rule;
     class DECISION decision;
     class RESULT result;
