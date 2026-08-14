@@ -18,7 +18,6 @@ A deterministic, medically-grounded pre-exercise screening system that validates
 - [Running Locally](#running-locally)
 - [Testing](#testing)
 - [Assumptions](#assumptions)
-- [Questions Asked & How Answers Shaped the Design](#questions-asked--how-answers-shaped-the-design)
 - [Future Extensions](#future-extensions)
 
 ---
@@ -74,39 +73,65 @@ I broke this problem into three layers:
 
 ## Architecture
 
-```
-                    ┌─────────── Vercel (single deployment) ──────────┐
-                    │                                                   │
-User Profile ──────▶│  POST /api/v1/check                              │
-  (JSON)            │       │                                           │
-                    │       ▼                                           │
-                    │  Zod Schema Validation                            │
-                    │       │                                           │
-                    │       ▼                                           │
-                    │  SafetyCheckAgent.evaluate()                      │
-                    │       │                                           │
-                    │       ├── DataIntegrityRule                       │
-                    │       ├── BloodPressureRule    (AHA 2017)         │
-                    │       ├── HeartRateRule        (ACSM 11th Ed.)   │
-                    │       ├── BMIRule              (WHO 2004)         │
-                    │       ├── AgeRule              (ACSM)            │
-                    │       ├── PARQRule             (CSEP 2020)        │
-                    │       ├── GoalConflictRule     (ACSM/AHA/ACOG)   │
-                    │       └── MedicationRule       (AHA 2013)         │
-                    │       │                                           │
-                    │       ▼                                           │
-                    │  Decision Aggregator                              │
-                    │  (is_safe = blocks === 0)                         │
-                    │       │                                           │
-                    │       ▼                                           │
-                    │  CheckResult { is_safe, conflicts[], ... }        │
-                    │                                                   │
-                    └───────────────────────────────────────────────────┘
-```
+```mermaid
+flowchart TB
 
-### Why a Single Deployment
+    USER["👤 User Profile<br/>(JSON)"]
+    API["🌐 POST /api/v1/check"]
+    VALIDATE["✓ Zod Schema Validation"]
+    AGENT["⚙ SafetyCheckAgent.evaluate()"]
 
-Since the system is purely deterministic (no AI/ML inference, no GPU, no Python-specific libraries), the entire application — API routes, rule engine, and frontend — runs as a single Next.js deployment on Vercel. This eliminates the operational complexity of managing separate backend and frontend services.
+    USER --> API
+    API --> VALIDATE
+    VALIDATE --> AGENT
+
+    subgraph RULES["Safety Rule Engine"]
+        direction TB
+        R1["Data Integrity"]
+        R2["Blood Pressure<br/>AHA 2017"]
+        R3["Heart Rate<br/>ACSM 11th Ed."]
+        R4["BMI<br/>WHO 2004"]
+        R5["Age<br/>ACSM"]
+        R6["PAR-Q<br/>CSEP 2020"]
+        R7["Goal Conflict<br/>ACSM · AHA · ACOG"]
+        R8["Medication<br/>AHA 2013"]
+    end
+
+    AGENT --> R1
+    AGENT --> R2
+    AGENT --> R3
+    AGENT --> R4
+    AGENT --> R5
+    AGENT --> R6
+    AGENT --> R7
+    AGENT --> R8
+
+    R1 --> DECISION
+    R2 --> DECISION
+    R3 --> DECISION
+    R4 --> DECISION
+    R5 --> DECISION
+    R6 --> DECISION
+    R7 --> DECISION
+    R8 --> DECISION
+
+    DECISION["⚖ Decision Aggregator<br/>is_safe = blocks === 0"]
+    DECISION --> RESULT["✓ CheckResult<br/>is_safe · conflicts[] · ..."]
+
+    classDef input fill:#2563EB,stroke:#93C5FD,color:#FFFFFF,stroke-width:2px;
+    classDef api fill:#7C3AED,stroke:#C4B5FD,color:#FFFFFF,stroke-width:2px;
+    classDef agent fill:#0F766E,stroke:#5EEAD4,color:#FFFFFF,stroke-width:2px;
+    classDef rule fill:#334155,stroke:#94A3B8,color:#FFFFFF,stroke-width:1.5px;
+    classDef decision fill:#B45309,stroke:#FCD34D,color:#FFFFFF,stroke-width:2px;
+    classDef result fill:#15803D,stroke:#86EFAC,color:#FFFFFF,stroke-width:2px;
+
+    class USER input;
+    class API,VALIDATE api;
+    class AGENT agent;
+    class R1,R2,R3,R4,R5,R6,R7,R8 rule;
+    class DECISION decision;
+    class RESULT result;
+```
 
 ---
 
@@ -121,8 +146,6 @@ Since the system is purely deterministic (no AI/ML inference, no GPU, no Python-
 | **Frontend** | React 19 (App Router) | Same codebase as API. Component-based UI for the demo. |
 | **Styling** | Vanilla CSS | Full design control. Dark glassmorphism theme with medical-grade color coding. |
 | **Deployment** | Vercel | Zero-config deployment from GitHub. Free tier. Auto-HTTPS. |
-
-**Why not Python/FastAPI?** Without an AI/ML layer, Python's main advantage disappears. TypeScript gives compile-time type safety across the full stack — especially valuable when the rule engine's correctness is the product's core value proposition. A single Vercel deployment is also simpler to operate than a Python backend + React frontend on two platforms.
 
 ---
 
@@ -240,7 +263,7 @@ Returns `{ status: "ok", rules_loaded: 8, version: "1.0.0" }`.
 
 ```bash
 # Clone
-git clone https://github.com/ritam-pal/safety-check-agent.git
+git clone https://github.com/ritam03/safety-check-agent.git
 cd safety-check-agent
 
 # Install
@@ -303,28 +326,6 @@ npm test
 
 ---
 
-## Questions Asked & How Answers Shaped the Design
-
-### Q1: Is there an existing profile schema?
-
-**Answer:** "Design it yourself."
-
-**Impact:** I designed the schema around the PAR-Q+ framework — the industry-standard pre-exercise screening tool. This gives the schema medical credibility rather than being an arbitrary collection of fields.
-
-### Q2: Deterministic or LLM-based?
-
-**Answer:** "Deterministic. Keep a human doctor in the loop while formulating rules."
-
-**Impact:** This was the most important answer. It meant every threshold must cite a published medical guideline. I grounded all 8 rules in AHA, ACSM, WHO, and CSEP publications. No rule invents its own medical logic. The system is a codification of clinical decision-making, not a heuristic guess.
-
-### Q3: Boolean output or structured constraints?
-
-**Answer:** "Boolean for simplicity, but ideally think about how constraints determine session modification."
-
-**Impact:** The API returns `is_safe: boolean`, but internally every conflict carries full detail (severity, category, recommendation, citation). This makes the system ready for constraint-based session modification without changing the rule engine. The extension path is documented below.
-
----
-
 ## Future Extensions
 
 ### 1. Constraint-Based Session Modification
@@ -366,48 +367,3 @@ If health data comes from wearables (smartwatch HR, BP cuff), the confidence in 
 ### 6. Internationalisation of Thresholds
 
 BMI thresholds differ by ethnicity (WHO recommends lower cut-offs for South Asian populations). The rule engine could accept a `region` parameter to adjust thresholds accordingly.
-
----
-
-## Project Structure
-
-```
-safety-check-agent/
-├── app/
-│   ├── api/v1/
-│   │   ├── check/route.ts          # POST — primary endpoint
-│   │   ├── health/route.ts         # GET  — health check
-│   │   └── rules/route.ts          # GET  — rule listing
-│   ├── globals.css                 # Design system
-│   ├── layout.tsx                  # Root layout + metadata
-│   └── page.tsx                    # Main demo UI
-├── components/
-│   ├── PresetSelector.tsx          # 5 demo profile presets
-│   ├── ProfileForm.tsx             # Sectioned profile input form
-│   └── ResultCard.tsx              # Color-coded result display
-├── constants/
-│   └── presets.ts                  # Preset profile definitions
-├── lib/
-│   ├── schema.ts                   # Zod UserProfile schema
-│   ├── types.ts                    # TypeScript interfaces
-│   └── rules/
-│       ├── registry.ts             # SafetyCheckAgent orchestrator
-│       ├── bloodPressure.ts        # AHA 2017
-│       ├── heartRate.ts            # ACSM 11th Ed.
-│       ├── bmi.ts                  # WHO 2004
-│       ├── age.ts                  # ACSM Pre-screening
-│       ├── parq.ts                 # CSEP PAR-Q+ 2020
-│       ├── dataIntegrity.ts        # Plausibility checks
-│       ├── goalConflict.ts         # Goal ↔ condition conflicts
-│       └── medication.ts           # Drug-exercise interactions
-├── __tests__/
-│   └── integration.test.ts         # 12 tests, all passing
-├── vitest.config.ts
-├── tsconfig.json
-├── package.json
-└── README.md                       # ← You are here
-```
-
----
-
-*Built by Ritam Pal for the Machaxi Product Engineer assessment.*
