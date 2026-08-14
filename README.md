@@ -95,9 +95,12 @@ flowchart TB
         R6["PAR-Q<br/>CSEP 2020"]
         R7["Goal Conflict<br/>ACSM · AHA · ACOG"]
         R8["Medication<br/>AHA 2013"]
+        
+        %% Invisible links force the horizontal layout inside the subgraph
+        R1 ~~~ R2 ~~~ R3 ~~~ R4 ~~~ R5 ~~~ R6 ~~~ R7 ~~~ R8
     end
 
-    %% Connect directly to and from the subgraph instead of individual nodes
+    %% Clean single arrows connected to the subgraph boundary
     AGENT --> RULES
     RULES --> DECISION
 
