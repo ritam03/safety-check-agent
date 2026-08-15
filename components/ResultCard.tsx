@@ -1,7 +1,6 @@
 "use client";
 
 import type { CheckResult } from "@/lib/types";
-import { useState } from "react";
 
 interface Props {
   result: CheckResult;
@@ -26,7 +25,6 @@ function getStatusText(result: CheckResult): string {
 }
 
 export default function ResultCard({ result }: Props) {
-  const [showJson, setShowJson] = useState(false);
   const status = getStatusClass(result);
 
   return (
@@ -86,28 +84,12 @@ export default function ResultCard({ result }: Props) {
         </div>
       )}
 
-      {/* Meta Info */}
+      {/* Checked timestamp */}
       <div className="meta-info">
-        <span className="meta-item">{result.profile_hash}</span>
         <span className="meta-item">
-          {new Date(result.checked_at).toLocaleTimeString()}
+          Checked at {new Date(result.checked_at).toLocaleString()}
         </span>
       </div>
-
-      {/* JSON Toggle */}
-      <button
-        className="json-toggle"
-        onClick={() => setShowJson(!showJson)}
-        type="button"
-      >
-        {showJson ? "▾ Hide" : "▸ Show"} Raw JSON Response
-      </button>
-
-      {showJson && (
-        <div className="json-viewer">
-          <pre>{JSON.stringify(result, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 }

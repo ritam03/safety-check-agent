@@ -63,7 +63,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="age"
               type="number"
-              value={profile.age}
+              value={profile.age || ""}
+              placeholder="e.g. 25"
               onChange={(e) => updateField("age", Number(e.target.value))}
               min={12}
               max={100}
@@ -88,7 +89,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="height_cm"
               type="number"
-              value={profile.height_cm}
+              value={profile.height_cm || ""}
+              placeholder="e.g. 175"
               onChange={(e) => updateField("height_cm", Number(e.target.value))}
               min={100}
               max={250}
@@ -99,7 +101,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="weight_kg"
               type="number"
-              value={profile.weight_kg}
+              value={profile.weight_kg || ""}
+              placeholder="e.g. 72"
               onChange={(e) => updateField("weight_kg", Number(e.target.value))}
               min={20}
               max={300}
@@ -117,7 +120,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="resting_heart_rate"
               type="number"
-              value={profile.resting_heart_rate}
+              value={profile.resting_heart_rate || ""}
+              placeholder="e.g. 72"
               onChange={(e) =>
                 updateField("resting_heart_rate", Number(e.target.value))
               }
@@ -130,7 +134,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="bp_systolic"
               type="number"
-              value={profile.blood_pressure_systolic}
+              value={profile.blood_pressure_systolic || ""}
+              placeholder="e.g. 120"
               onChange={(e) =>
                 updateField("blood_pressure_systolic", Number(e.target.value))
               }
@@ -143,7 +148,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="bp_diastolic"
               type="number"
-              value={profile.blood_pressure_diastolic}
+              value={profile.blood_pressure_diastolic || ""}
+              placeholder="e.g. 80"
               onChange={(e) =>
                 updateField("blood_pressure_diastolic", Number(e.target.value))
               }
@@ -220,7 +226,8 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
             <input
               id="weekly_workout_days"
               type="number"
-              value={profile.weekly_workout_days}
+              value={profile.weekly_workout_days || ""}
+              placeholder="e.g. 4"
               onChange={(e) =>
                 updateField("weekly_workout_days", Number(e.target.value))
               }
