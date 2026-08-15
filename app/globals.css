@@ -303,6 +303,15 @@ body::before {
   margin-bottom: 12px;
 }
 
+.form-section-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

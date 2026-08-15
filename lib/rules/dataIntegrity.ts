@@ -40,6 +40,22 @@ export class DataIntegrityRule implements Rule {
       });
     }
 
+    // ── Male with pregnancy condition (biologically impossible) ──
+    if (
+      profile.sex === "male" &&
+      profile.self_reported_conditions.includes("pregnancy")
+    ) {
+      conflicts.push({
+        rule: this.name,
+        severity: "BLOCK",
+        category: "DATA_INCONSISTENCY",
+        field: "self_reported_conditions",
+        detail: `User sex is "male" but "pregnancy" is listed as a health condition. This is a data entry error.`,
+        medical_reference: REFERENCE,
+        recommendation: "Correct either the sex field or remove pregnancy from health conditions.",
+      });
+    }
+
     // ── Pulse pressure too narrow ──
     const pulsePressure = profile.blood_pressure_systolic - profile.blood_pressure_diastolic;
     if (

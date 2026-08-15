@@ -16,6 +16,83 @@ interface Props {
   loading: boolean;
 }
 
+// ──────────────────────────────────────────────
+//  Context-Aware Field Filtering
+//
+//  Downstream fields are filtered based on upstream selections
+//  to prevent logically impossible combinations at the UI level.
+//  The backend DataIntegrityRule acts as a safety net for direct
+//  API callers who bypass this form.
+// ──────────────────────────────────────────────
+
+/**
+ * Maps health conditions to the medications that are medically
+ * relevant for exercise interaction purposes.
+ *
+ * Only medications that have a clinical reason given the user's
+ * conditions are shown. "none" is always available.
+ */
+const CONDITION_TO_MEDICATIONS: Record<string, string[]> = {
+  hypertension:    ["beta_blockers", "diuretics"],
+  heart_disease:   ["beta_blockers", "blood_thinners", "statins"],
+  diabetes_type1:  ["insulin"],
+  diabetes_type2:  ["insulin", "statins"],
+  recent_surgery:  ["blood_thinners"],
+};
+
+/** Returns health conditions available given the user's sex. */
+function getAvailableConditions(sex: string): readonly string[] {
+  return HEALTH_CONDITIONS.filter((c) => {
+    // Pregnancy is only relevant for female / other
+    if (c === "pregnancy" && sex === "male") return false;
+    return true;
+  });
+}
+
+/** Returns medications available given selected health conditions. */
+function getAvailableMedications(conditions: readonly string[]): readonly string[] {
+  const available = new Set<string>(["none"]);
+
+  for (const condition of conditions) {
+    const meds = CONDITION_TO_MEDICATIONS[condition];
+    if (meds) meds.forEach((m) => available.add(m));
+  }
+
+  return MEDICATIONS.filter((m) => available.has(m));
+}
+
+/**
+ * Apply cascading constraints after any field change.
+ *
+ * When an upstream field changes (e.g. sex), downstream fields
+ * (conditions, medications) are automatically cleaned to remove
+ * any now-invalid selections.
+ */
+function applyConstraints(p: UserProfile): UserProfile {
+  const result = { ...p };
+
+  // ── Sex → Conditions: remove pregnancy for males ──
+  if (result.sex === "male") {
+    const filtered = (result.self_reported_conditions as string[]).filter(
+      (c) => c !== "pregnancy"
+    );
+    result.self_reported_conditions =
+      filtered.length === 0 ? ["none"] : (filtered as typeof result.self_reported_conditions);
+  }
+
+  // ── Conditions → Medications: remove meds with no clinical basis ──
+  const availableMeds = getAvailableMedications(result.self_reported_conditions);
+  const filteredMeds = (result.medications as string[]).filter((m) =>
+    availableMeds.includes(m)
+  );
+  result.medications =
+    filteredMeds.length === 0 ? ["none"] : (filteredMeds as typeof result.medications);
+
+  return result;
+}
+
+// ──────────────────────────────────────────────
+
 /** Readable label from snake_case enum value */
 function toLabel(s: string): string {
   return s
@@ -24,8 +101,13 @@ function toLabel(s: string): string {
 }
 
 export default function ProfileForm({ profile, onChange, onSubmit, loading }: Props) {
-  function updateField<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
-    onChange({ ...profile, [key]: value });
+  /**
+   * Central update function — applies cascading constraints
+   * after every field change before propagating to parent.
+   */
+  function updateProfile(updates: Partial<UserProfile>) {
+    const merged = { ...profile, ...updates };
+    onChange(applyConstraints(merged));
   }
 
   function toggleArrayItem(
@@ -34,7 +116,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
   ) {
     const arr = profile[key] as string[];
     if (item === "none") {
-      updateField(key, ["none"] as UserProfile[typeof key]);
+      updateProfile({ [key]: ["none"] });
       return;
     }
     let newArr = arr.filter((v) => v !== "none");
@@ -44,13 +126,19 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
       newArr.push(item);
     }
     if (newArr.length === 0) newArr = ["none"];
-    updateField(key, newArr as UserProfile[typeof key]);
+    updateProfile({ [key]: newArr });
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit();
   }
+
+  // ── Compute available options based on current profile state ──
+  const availableConditions = getAvailableConditions(profile.sex);
+  const availableMedications = getAvailableMedications(
+    profile.self_reported_conditions
+  );
 
   return (
     <form onSubmit={handleSubmit}>
@@ -65,7 +153,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               type="number"
               value={profile.age || ""}
               placeholder="e.g. 25"
-              onChange={(e) => updateField("age", Number(e.target.value))}
+              onChange={(e) => updateProfile({ age: Number(e.target.value) })}
               min={12}
               max={100}
             />
@@ -76,7 +164,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               id="sex"
               value={profile.sex}
               onChange={(e) =>
-                updateField("sex", e.target.value as UserProfile["sex"])
+                updateProfile({ sex: e.target.value as UserProfile["sex"] })
               }
             >
               <option value="male">Male</option>
@@ -91,7 +179,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               type="number"
               value={profile.height_cm || ""}
               placeholder="e.g. 175"
-              onChange={(e) => updateField("height_cm", Number(e.target.value))}
+              onChange={(e) =>
+                updateProfile({ height_cm: Number(e.target.value) })
+              }
               min={100}
               max={250}
             />
@@ -103,7 +193,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               type="number"
               value={profile.weight_kg || ""}
               placeholder="e.g. 72"
-              onChange={(e) => updateField("weight_kg", Number(e.target.value))}
+              onChange={(e) =>
+                updateProfile({ weight_kg: Number(e.target.value) })
+              }
               min={20}
               max={300}
             />
@@ -123,7 +215,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               value={profile.resting_heart_rate || ""}
               placeholder="e.g. 72"
               onChange={(e) =>
-                updateField("resting_heart_rate", Number(e.target.value))
+                updateProfile({
+                  resting_heart_rate: Number(e.target.value),
+                })
               }
               min={25}
               max={220}
@@ -137,7 +231,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               value={profile.blood_pressure_systolic || ""}
               placeholder="e.g. 120"
               onChange={(e) =>
-                updateField("blood_pressure_systolic", Number(e.target.value))
+                updateProfile({
+                  blood_pressure_systolic: Number(e.target.value),
+                })
               }
               min={60}
               max={250}
@@ -151,7 +247,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               value={profile.blood_pressure_diastolic || ""}
               placeholder="e.g. 80"
               onChange={(e) =>
-                updateField("blood_pressure_diastolic", Number(e.target.value))
+                updateProfile({
+                  blood_pressure_diastolic: Number(e.target.value),
+                })
               }
               min={30}
               max={150}
@@ -170,10 +268,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               id="fitness_goal"
               value={profile.fitness_goal}
               onChange={(e) =>
-                updateField(
-                  "fitness_goal",
-                  e.target.value as UserProfile["fitness_goal"]
-                )
+                updateProfile({
+                  fitness_goal: e.target.value as UserProfile["fitness_goal"],
+                })
               }
             >
               {FITNESS_GOALS.map((g) => (
@@ -189,10 +286,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               id="activity_level"
               value={profile.activity_level}
               onChange={(e) =>
-                updateField(
-                  "activity_level",
-                  e.target.value as UserProfile["activity_level"]
-                )
+                updateProfile({
+                  activity_level: e.target.value as UserProfile["activity_level"],
+                })
               }
             >
               {ACTIVITY_LEVELS.map((l) => (
@@ -208,10 +304,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               id="experience_level"
               value={profile.experience_level}
               onChange={(e) =>
-                updateField(
-                  "experience_level",
-                  e.target.value as UserProfile["experience_level"]
-                )
+                updateProfile({
+                  experience_level: e.target.value as UserProfile["experience_level"],
+                })
               }
             >
               {EXPERIENCE_LEVELS.map((l) => (
@@ -229,7 +324,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               value={profile.weekly_workout_days || ""}
               placeholder="e.g. 4"
               onChange={(e) =>
-                updateField("weekly_workout_days", Number(e.target.value))
+                updateProfile({
+                  weekly_workout_days: Number(e.target.value),
+                })
               }
               min={0}
               max={7}
@@ -238,12 +335,12 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
         </div>
       </div>
 
-      {/* ── Health Conditions ── */}
+      {/* ── Health Conditions (filtered by sex) ── */}
       <div className="form-section">
         <div className="form-section-title">Health Conditions</div>
         <div className="form-grid">
           <div className="checkbox-grid">
-            {HEALTH_CONDITIONS.map((c) => (
+            {availableConditions.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -263,12 +360,19 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
         </div>
       </div>
 
-      {/* ── Medications ── */}
+      {/* ── Medications (filtered by conditions) ── */}
       <div className="form-section">
-        <div className="form-section-title">Medications</div>
+        <div className="form-section-title">
+          Medications
+          {availableMedications.length <= 1 && (
+            <span className="form-section-hint">
+              {" "}— select a health condition to see relevant medications
+            </span>
+          )}
+        </div>
         <div className="form-grid">
           <div className="checkbox-grid">
-            {MEDICATIONS.map((m) => (
+            {availableMedications.map((m) => (
               <button
                 key={m}
                 type="button"
@@ -326,7 +430,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
                   <input
                     type="checkbox"
                     checked={profile[q.key]}
-                    onChange={(e) => updateField(q.key, e.target.checked)}
+                    onChange={(e) =>
+                      updateProfile({ [q.key]: e.target.checked })
+                    }
                   />
                   <span className="toggle-slider" />
                 </div>
