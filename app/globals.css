@@ -328,6 +328,27 @@ body::before {
   grid-column: 1 / -1;
 }
 
+/* Field validation errors */
+.form-group.has-error input,
+.form-group.has-error select {
+  border-color: var(--block-border);
+  background: var(--block-bg);
+}
+
+.form-group.has-error input:focus,
+.form-group.has-error select:focus {
+  border-color: var(--block);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.field-error {
+  font-size: 0.72rem;
+  color: var(--block);
+  font-weight: 500;
+  line-height: 1.3;
+  animation: fadeSlideIn 0.25s ease;
+}
+
 .form-group label {
   font-size: 0.78rem;
   font-weight: 500;

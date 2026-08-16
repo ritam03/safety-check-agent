@@ -1,6 +1,7 @@
 "use client";
 
 import type { UserProfile } from "@/lib/schema";
+import type { FieldError } from "@/app/page";
 import {
   FITNESS_GOALS,
   ACTIVITY_LEVELS,
@@ -11,6 +12,7 @@ import {
 
 interface Props {
   profile: UserProfile;
+  fieldErrors: FieldError[];
   onChange: (profile: UserProfile) => void;
   onSubmit: () => void;
   loading: boolean;
@@ -100,7 +102,12 @@ function toLabel(s: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function ProfileForm({ profile, onChange, onSubmit, loading }: Props) {
+export default function ProfileForm({ profile, fieldErrors, onChange, onSubmit, loading }: Props) {
+  /** Get error message for a specific field */
+  function getError(field: string): string | undefined {
+    return fieldErrors.find((e) => e.field === field)?.message;
+  }
+
   /**
    * Central update function — applies cascading constraints
    * after every field change before propagating to parent.
@@ -146,7 +153,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
       <div className="form-section">
         <div className="form-section-title">Demographics</div>
         <div className="form-grid">
-          <div className="form-group">
+          <div className={`form-group ${getError("age") ? "has-error" : ""}`}>
             <label htmlFor="age">Age</label>
             <input
               id="age"
@@ -157,6 +164,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               min={12}
               max={100}
             />
+            {getError("age") && <span className="field-error">{getError("age")}</span>}
           </div>
           <div className="form-group">
             <label htmlFor="sex">Sex</label>
@@ -172,7 +180,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               <option value="other">Other</option>
             </select>
           </div>
-          <div className="form-group">
+          <div className={`form-group ${getError("height_cm") ? "has-error" : ""}`}>
             <label htmlFor="height_cm">Height (cm)</label>
             <input
               id="height_cm"
@@ -185,8 +193,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               min={100}
               max={250}
             />
+            {getError("height_cm") && <span className="field-error">{getError("height_cm")}</span>}
           </div>
-          <div className="form-group">
+          <div className={`form-group ${getError("weight_kg") ? "has-error" : ""}`}>
             <label htmlFor="weight_kg">Weight (kg)</label>
             <input
               id="weight_kg"
@@ -199,6 +208,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               min={20}
               max={300}
             />
+            {getError("weight_kg") && <span className="field-error">{getError("weight_kg")}</span>}
           </div>
         </div>
       </div>
@@ -207,7 +217,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
       <div className="form-section">
         <div className="form-section-title">Vitals (at rest)</div>
         <div className="form-grid">
-          <div className="form-group">
+          <div className={`form-group ${getError("resting_heart_rate") ? "has-error" : ""}`}>
             <label htmlFor="resting_heart_rate">Resting Heart Rate (BPM)</label>
             <input
               id="resting_heart_rate"
@@ -222,8 +232,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               min={25}
               max={220}
             />
+            {getError("resting_heart_rate") && <span className="field-error">{getError("resting_heart_rate")}</span>}
           </div>
-          <div className="form-group">
+          <div className={`form-group ${getError("blood_pressure_systolic") ? "has-error" : ""}`}>
             <label htmlFor="bp_systolic">Blood Pressure — Systolic</label>
             <input
               id="bp_systolic"
@@ -238,8 +249,9 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               min={60}
               max={250}
             />
+            {getError("blood_pressure_systolic") && <span className="field-error">{getError("blood_pressure_systolic")}</span>}
           </div>
-          <div className="form-group">
+          <div className={`form-group ${getError("blood_pressure_diastolic") ? "has-error" : ""}`}>
             <label htmlFor="bp_diastolic">Blood Pressure — Diastolic</label>
             <input
               id="bp_diastolic"
@@ -254,6 +266,7 @@ export default function ProfileForm({ profile, onChange, onSubmit, loading }: Pr
               min={30}
               max={150}
             />
+            {getError("blood_pressure_diastolic") && <span className="field-error">{getError("blood_pressure_diastolic")}</span>}
           </div>
         </div>
       </div>
