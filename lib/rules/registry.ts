@@ -1,9 +1,9 @@
 /**
  * Rule Base & Registry
  *
- * Architecture: Registry Pattern
- * - Rules are self-contained modules that implement the Rule interface
- * - The SafetyCheckAgent collects all rules and evaluates them in a single pass
+ * Architecture: Registry Pattern + Parallel Execution
+ * - Rules are self-contained, stateless modules that implement the Rule interface
+ * - The SafetyCheckAgent fires all rules concurrently via Promise.all
  * - No short-circuiting: ALL rules fire so the user gets a complete picture
  * - Adding a new rule = writing one file + registering it here. Zero changes to core.
  *
@@ -84,13 +84,17 @@ export class SafetyCheckAgent {
    * Returns a complete CheckResult with all conflicts found.
    */
   async evaluate(profile: UserProfile): Promise<CheckResult> {
-    // All rules fire — no short-circuit
-    const allConflicts: Conflict[] = [];
+    // ── Fire all rules in parallel ──
+    // Rules are stateless pure functions with no shared mutable state,
+    // so they can safely execute concurrently. This gives O(max rule time)
+    // instead of O(sum of all rule times) — critical at scale.
+    const [ruleResults, profileHash] = await Promise.all([
+      Promise.all(this.rules.map((rule) => Promise.resolve(rule.evaluate(profile)))),
+      hashProfile(profile),
+    ]);
 
-    for (const rule of this.rules) {
-      const conflicts = rule.evaluate(profile);
-      allConflicts.push(...conflicts);
-    }
+    // ── Aggregate conflicts from all rules ──
+    const allConflicts: Conflict[] = ruleResults.flat();
 
     // Sort: BLOCK conflicts first, then WARN
     allConflicts.sort((a, b) => {
@@ -101,7 +105,6 @@ export class SafetyCheckAgent {
 
     const blocks = allConflicts.filter((c) => c.severity === "BLOCK").length;
     const warnings = allConflicts.filter((c) => c.severity === "WARN").length;
-    const profileHash = await hashProfile(profile);
 
     return {
       is_safe: blocks === 0,
